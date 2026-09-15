@@ -6,6 +6,7 @@
 <script>
   globalThis.chrome = {
     storage: { local: { get: (d, cb) => cb({ ...d, factor: 0.5 }) }, onChanged: { addListener() {} } },
+    runtime: { onMessage: { addListener() {} } },
   };
 </script>
 <script src="content.js"></script>

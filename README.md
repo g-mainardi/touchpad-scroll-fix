@@ -1,26 +1,30 @@
 # Touchpad Scroll Fix
 
-Estensione per Chrome che riduce la sensibilità dello scroll del touchpad su Linux (GNOME/Wayland) senza toccare la rotella del mouse.
+A Chrome extension that tames touchpad scroll sensitivity on Linux (GNOME/Wayland) without touching the mouse wheel.
 
-## Installazione
+Chromium applies GNOME's high-resolution touchpad deltas without the damping Firefox and GTK apps use, so touchpad scrolling in Chrome feels several times too fast.
 
-1. Apri `chrome://extensions` e attiva **Modalità sviluppatore**.
-2. **Carica estensione non pacchettizzata** e scegli questa cartella.
+## Install
 
-Con Chrome flatpak la cartella deve stare in un percorso che il sandbox può leggere, per esempio `~/Documents`.
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and pick this folder.
 
-## Come funziona
+With Flatpak Chrome the folder must live somewhere the sandbox can read, such as `~/Documents`.
 
-- Il tipo di dispositivo viene deciso sul primo evento di ogni gesto: la rotella manda scatti interi (`wheelDelta` multiplo di 120), il touchpad valori arbitrari.
-- Per i gesti da touchpad annulla lo scroll nativo e scorre lo stesso elemento di `delta × sensibilità`, conservando i decimali.
-- Se il gesto parte dentro un iframe che non ha più niente da scorrere, lo scroll ridotto passa alla pagina che lo contiene, come fa lo scroll nativo.
-- Non interviene su rotella del mouse, pinch-zoom (Ctrl), siti che gestiscono lo scroll da soli e pagine con lo scroll bloccato.
-- La sensibilità si regola dal popup, che ha anche un'area di prova e si può aprire in una finestra separata.
+## How it works
 
-## Sviluppo
+- The device is decided on the first event of each gesture: mouse wheels send whole notches (`wheelDelta` multiple of 120), touchpads arbitrary values.
+- For touchpad gestures it cancels native scrolling and scrolls the same element by `delta × sensitivity`, carrying fractional pixels over.
+- When a gesture starts in an iframe with nothing left to scroll, the scaled scroll is handed to the parent page, like native scroll chaining. The frame is identified via `postMessage`, while the amounts travel through extension messaging, so page scripts can't forge scrolling.
+- Mouse wheel, pinch zoom (Ctrl), sites that handle wheel events themselves and scroll-locked pages are left alone.
+- The popup sets the sensitivity, has a test area, can open in its own window and switches the UI between English and Italian.
 
-- `test.html` verifica la logica: aprilo in Chrome e leggi PASS/FAIL, oppure in headless:
+Settings live in `chrome.storage.local`: every tab, window and frame picks up changes immediately, and they survive restarts. Moving the folder gives the unpacked extension a new ID, which resets them.
+
+## Development
+
+- `test.html` checks the core logic with synthetic events: open it in Chrome and read PASS/FAIL, or run it headless:
   `google-chrome --headless --allow-file-access-from-files --virtual-time-budget=3000 --dump-dom file://$PWD/test.html`
-- `test-iframe.mjs` verifica con eventi di input reali (Chrome headless via DevTools Protocol) touchpad, rotella del mouse e passaggio dello scroll dagli iframe: `node test-iframe.mjs` (di default usa Chrome flatpak, altrimenti `CHROME=google-chrome`).
-- `icons/*.svg` sono i sorgenti delle icone PNG.
-- Dopo una modifica ricarica l'estensione da `chrome://extensions`; se hai toccato `content.js` ricarica anche le schede aperte.
+- `test-iframe.mjs` drives headless Chrome with real input over the DevTools Protocol to cover touchpad, mouse wheel and the iframe hand-off: `node test-iframe.mjs` (uses Flatpak Chrome by default, or `CHROME=google-chrome`).
+- `icons/*.svg` are the sources of the PNG icons.
+- After a change, reload the extension from `chrome://extensions`; if `content.js` changed, reload open tabs too.

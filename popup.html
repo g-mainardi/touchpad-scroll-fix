@@ -1,9 +1,11 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <title>Touchpad Scroll Fix</title>
 <style>
   body { font: 13px system-ui, sans-serif; width: 320px; margin: 12px; color-scheme: light dark; }
   .row { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .row select { margin-left: auto; }
   input[type=range] { flex: 1; min-width: 0; }
   .row button { width: 26px; height: 26px; padding: 0; font-size: 16px; line-height: 1; }
   output { width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -15,16 +17,22 @@
   body.win #test { flex: 1; height: auto; }
   body.win #open { display: none; }
 </style>
-<div class="row"><label><input type="checkbox" id="enabled"> Attiva</label></div>
 <div class="row">
-  <label for="factor">Sensibilità</label>
-  <button id="minus" aria-label="Diminuisci sensibilità">−</button>
+  <label><input type="checkbox" id="enabled"> <span data-i18n="enabled">Enabled</span></label>
+  <select id="lang" aria-label="Language" data-i18n-aria="language">
+    <option value="en">English</option>
+    <option value="it">Italiano</option>
+  </select>
+</div>
+<div class="row">
+  <label for="factor" data-i18n="sensitivity">Sensitivity</label>
+  <button id="minus" aria-label="Decrease sensitivity" data-i18n-aria="decrease">−</button>
   <input type="range" id="factor" min="0.01" max="0.5" step="0.01">
-  <button id="plus" aria-label="Aumenta sensibilità">+</button>
+  <button id="plus" aria-label="Increase sensitivity" data-i18n-aria="increase">+</button>
   <output id="val" for="factor"></output>
 </div>
 <div id="test"></div>
-<div id="info">Scorri nel riquadro per provare.</div>
-<button id="open">Apri in una finestra</button>
+<div id="info" data-i18n="hint">Scroll inside the box to try it.</div>
+<button id="open" data-i18n="open">Open in a window</button>
 <script src="content.js"></script>
 <script src="popup.js"></script>

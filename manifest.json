@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Touchpad Scroll Fix",
+  "version": "1.0",
+  "description": "Riduce la sensibilità dello scroll del touchpad senza toccare la rotella del mouse.",
+  "permissions": ["storage"],
+  "icons": { "16": "icons/on-16.png", "32": "icons/on-32.png", "48": "icons/on-48.png", "128": "icons/on-128.png" },
+  "action": { "default_popup": "popup.html", "default_icon": { "16": "icons/on-16.png", "32": "icons/on-32.png" } },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "all_frames": true,
+      "match_about_blank": true,
+      "run_at": "document_start"
+    }
+  ]
+}

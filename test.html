@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Touchpad Scroll Fix - test</title>
+<div id="box" style="height:100px;overflow:auto"><div style="height:2000px"></div></div>
+<pre id="out">running…</pre>
+<script>
+  globalThis.chrome = {
+    storage: { local: { get: (d, cb) => cb({ ...d, factor: 0.5 }) }, onChanged: { addListener() {} } },
+  };
+</script>
+<script src="content.js"></script>
+<script>
+  const box = document.getElementById('box'), log = [];
+  const fire = init => {
+    const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, composed: true, ...init });
+    box.firstElementChild.dispatchEvent(e);
+    return e;
+  };
+  const check = (name, ok, extra = '') => log.push(`${ok ? 'PASS' : 'FAIL'} ${name} ${extra}`);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  (async () => {
+    const e1 = fire({ deltaY: 37, wheelDeltaY: -84 });
+    check('touchpad scaled x0.5', box.scrollTop === 18, `scrollTop=${box.scrollTop} wheelDeltaY=${e1.wheelDeltaY}`);
+    fire({ deltaY: 37, wheelDeltaY: -84 });
+    check('remainder carried', box.scrollTop === 37, `scrollTop=${box.scrollTop}`);
+
+    await wait(300);
+    const m = fire({ deltaY: 120, wheelDeltaY: -120 });
+    check('mouse notch untouched', box.scrollTop === 37 && !m.defaultPrevented, `scrollTop=${box.scrollTop}`);
+
+    await wait(300);
+    const z = fire({ deltaY: 37, wheelDeltaY: -84, ctrlKey: true });
+    check('ctrl (pinch zoom) untouched', !z.defaultPrevented);
+
+    await wait(300);
+    box.scrollTop = 0;
+    const up = fire({ deltaY: -37, wheelDeltaY: 84 });
+    check('nothing to scroll -> native passthrough', !up.defaultPrevented);
+
+    document.getElementById('out').textContent = log.join('\n');
+  })();
+</script>

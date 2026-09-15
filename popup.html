@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Touchpad Scroll Fix</title>
+<style>
+  body { font: 13px system-ui, sans-serif; width: 320px; margin: 12px; color-scheme: light dark; }
+  .row { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+  input[type=range] { flex: 1; min-width: 0; }
+  .row button { width: 26px; height: 26px; padding: 0; font-size: 16px; line-height: 1; }
+  output { width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
+  #test { height: 130px; overflow: auto; border: 1px solid #8888; border-radius: 6px; padding: 0 8px; }
+  #test p { margin: 8px 0; }
+  #info { margin-top: 6px; opacity: .8; min-height: 2.6em; white-space: pre-line; font-variant-numeric: tabular-nums; }
+  #open { width: 100%; margin-top: 8px; padding: 6px; }
+  body.win { width: auto; height: calc(100vh - 24px); display: flex; flex-direction: column; }
+  body.win #test { flex: 1; height: auto; }
+  body.win #open { display: none; }
+</style>
+<div class="row"><label><input type="checkbox" id="enabled"> Attiva</label></div>
+<div class="row">
+  <label for="factor">Sensibilità</label>
+  <button id="minus" aria-label="Diminuisci sensibilità">−</button>
+  <input type="range" id="factor" min="0.01" max="0.5" step="0.01">
+  <button id="plus" aria-label="Aumenta sensibilità">+</button>
+  <output id="val" for="factor"></output>
+</div>
+<div id="test"></div>
+<div id="info">Scorri nel riquadro per provare.</div>
+<button id="open">Apri in una finestra</button>
+<script src="content.js"></script>
+<script src="popup.js"></script>

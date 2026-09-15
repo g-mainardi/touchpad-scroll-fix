@@ -1,0 +1,8 @@
+# Store packages and the private key created by "Pack extension"
+*.zip
+*.crx
+*.pem
+
+# Editors
+.vscode/
+.idea/

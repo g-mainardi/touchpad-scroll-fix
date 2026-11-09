@@ -85,16 +85,18 @@ addEventListener('wheel', e => {
   // Chrome only lets a gesture be cancelled if its first event was; the latched target mirrors native latching.
   if (!touchpad || !e.cancelable) return;
   const dx = e.deltaX * S.factor, dy = e.deltaY * S.factor;
-  // Page wheel listeners never see the real events. The first one of a gesture becomes a near-zero probe copy:
-  // - cancelled: the site scrolls itself (maps, carousels); it gets copies, batched one per STEP scaled px,
-  //   since some move a fixed step per event whatever the delta.
-  // - not cancelled: the extension scrolls and the page sees no more wheel events for the gesture. Notion Calendar
-  //   jumps a whole day per wheel event without cancelling it, so letting events through makes it race.
-  // ponytail: copies have isTrusted false and passive wheel listeners only get the probe; whitelist sites if either bites.
+  // Page wheel listeners never see the real events.
+  // - Over an inner scroller the extension scrolls it and the page sees no wheel event at all. Notion Calendar, on
+  //   any wheel event, turns on mandatory scroll snapping and jumps a day per event, so it must not see even one.
+  // - Otherwise (page root, nothing to scroll, iframe hand-off) the first event becomes a near-zero probe copy.
+  //   If the page cancels it (maps, carousels) the site scrolls itself and gets copies, batched one per STEP scaled
+  //   px since some move a fixed step per event; if not, the extension scrolls.
+  // ponytail: copies have isTrusted false, and wheel listeners that don't cancel only get the probe; whitelist if either bites.
   e.stopImmediatePropagation();
   if (fresh) {
     accX = accY = 0;
-    siteHandled = !replay(e, dx * 1e-3, dy * 1e-3);
+    const inner = target instanceof Element && target !== document.scrollingElement;
+    siteHandled = !inner && !replay(e, dx * 1e-3, dy * 1e-3);
   }
   if (siteHandled) {
     e.preventDefault();

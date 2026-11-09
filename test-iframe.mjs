@@ -30,11 +30,14 @@ const pages = {
       <div style="height:3000px"></div>
     </div>
     <div id="wide" style="position:fixed;top:0;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:3000px;height:1px"></div></div>
-    <div id="cal" style="position:fixed;top:200px;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:30000px;height:1px"></div></div>
+    <div id="cal" style="position:fixed;top:200px;right:0;width:100px;height:80px;overflow-x:auto;scroll-snap-type:none"><div style="display:flex"></div></div>
     <div id="custom" style="position:fixed;top:100px;right:0;width:100px;height:80px;overflow:hidden"></div>
     <script>
-      // Like Notion Calendar: a native scroller whose page also jumps a whole column per wheel event, without cancelling it.
+      // Like Notion Calendar: a native scroller whose page, on wheel, turns on mandatory snapping to columns and also
+      // jumps a whole column per event, without cancelling it.
+      cal.firstElementChild.innerHTML = '<div style="flex:none;width:100px;height:1px;scroll-snap-align:start"></div>'.repeat(300);
       cal.addEventListener('wheel', e => {
+        cal.style.scrollSnapType = 'x mandatory';
         window.calAcc += e.deltaX;
         if (Math.abs(window.calAcc) >= 1) { cal.scrollLeft += 1000 * Math.sign(window.calAcc); window.calAcc = 0; window.calJumps++; }
       }, { passive: true });
@@ -47,6 +50,7 @@ const pages = {
       addEventListener('wheel', e => { window.lastWheel = { deltaX: e.deltaX, wheelDeltaX: e.wheelDeltaX, deltaY: e.deltaY, wheelDeltaY: e.wheelDeltaY, cancelable: e.cancelable }; }, true);
       addEventListener('wheel', e => { window.lastWheel.prevented = e.defaultPrevented; });
       const reset = () => {
+        cal.style.scrollSnapType = 'none';
         outer.scrollTop = wide.scrollLeft = cal.scrollLeft = 0;
         window.calAcc = window.calJumps = 0;
         window.childY = window.customX = 0;
@@ -130,7 +134,7 @@ r = await gesture(450, 140, true, true);
 check('site stepping per wheel event: mouse untouched (5 notches)', r.custom === 5, r);
 
 r = await gesture(450, 240, false, true);
-check('Notion-like page jumping per event without cancelling: scaled native scroll, no jumps', near(r.cal[0]) && r.cal[1] === 0, r);
+check('Notion-like page (snaps and jumps on wheel): scaled native scroll, no jumps', near(r.cal[0]) && r.cal[1] === 0, r);
 
 console.log(log.join('\n'));
 const version = await fetch(`http://127.0.0.1:${CDP}/json/version`).then(r => r.json());

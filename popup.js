@@ -9,7 +9,7 @@ const STRINGS = {
     decrease: 'Decrease sensitivity',
     increase: 'Increase sensitivity',
     testLine: 'Test line',
-    hint: 'Scroll inside the box to try it.',
+    hint: 'Scroll inside the box, up/down and sideways, to try it.',
     open: 'Open in a window',
     touchpad: 'Touchpad (scaled)',
     mouse: 'Mouse (untouched)',
@@ -22,7 +22,7 @@ const STRINGS = {
     decrease: 'Diminuisci sensibilità',
     increase: 'Aumenta sensibilità',
     testLine: 'Riga di prova',
-    hint: 'Scorri nel riquadro per provare.',
+    hint: 'Scorri nel riquadro, in verticale e in orizzontale, per provare.',
     open: 'Apri in una finestra',
     touchpad: 'Touchpad (corretto)',
     mouse: 'Mouse (non toccato)',
@@ -57,5 +57,5 @@ $('open').onclick = () => chrome.windows.create({ url: 'popup.html?win', type: '
 
 globalThis.onTsfWheel = (e, touchpad) => {
   $('info').textContent = `${touchpad ? t.touchpad : t.mouse}\n` +
-    `deltaY ${e.deltaY.toFixed(1)} · wheelDeltaY ${e.wheelDeltaY}${e.cancelable ? '' : ` · ${t.notCancelable}`}`;
+    `deltaX ${e.deltaX.toFixed(1)} · deltaY ${e.deltaY.toFixed(1)}${e.cancelable ? '' : ` · ${t.notCancelable}`}`;
 };

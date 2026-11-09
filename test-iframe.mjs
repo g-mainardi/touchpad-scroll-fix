@@ -32,8 +32,8 @@ const pages = {
     <div id="wide" style="position:fixed;top:0;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:3000px;height:1px"></div></div>
     <div id="custom" style="position:fixed;top:100px;right:0;width:100px;height:80px;overflow:hidden"></div>
     <script>
-      // Like Notion Calendar: the page moves its own content by the wheel deltas and cancels native scrolling.
-      custom.addEventListener('wheel', e => { e.preventDefault(); window.customX += e.deltaX; }, { passive: false });
+      // Like Notion Calendar: the page cancels native scrolling and moves one day per wheel event, whatever the delta.
+      custom.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaX) >= 1) window.customX++; }, { passive: false });
       addEventListener('message', e => {
         if (e.data?.childY !== undefined) window.childY = e.data.childY;
         if (e.data?.childWheel) window.childWheel = e.data.childWheel;
@@ -118,9 +118,9 @@ check('horizontal touchpad scaled', near(r.wide) && r.outer === 0, r);
 r = await gesture(450, 40, true, true);
 check('horizontal mouse wheel untouched', near(r.wide, NATIVE), r);
 r = await gesture(450, 140, false, true);
-check('site handling wheel itself gets scaled deltas', near(r.custom) && r.outer === 0, r);
+check('site stepping per wheel event: events batched', r.custom >= 1 && r.custom <= 3 && r.outer === 0, r);
 r = await gesture(450, 140, true, true);
-check('site handling wheel itself: mouse untouched', near(r.custom, NATIVE), r);
+check('site stepping per wheel event: mouse untouched (5 notches)', r.custom === 5, r);
 
 console.log(log.join('\n'));
 const version = await fetch(`http://127.0.0.1:${CDP}/json/version`).then(r => r.json());

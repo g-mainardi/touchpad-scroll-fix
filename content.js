@@ -3,10 +3,14 @@ chrome.storage.local.get(S, v => Object.assign(S, v));
 chrome.storage.onChanged.addListener(c => { for (const k in c) S[k] = c[k].newValue; });
 
 const GAP_MS = 150;
+// Some sites move a fixed step per wheel event whatever its delta (Notion Calendar: one day), so on those
+// the copies are batched: one per STEP scaled px.
+// ponytail: fixed step, the leftover under STEP at gesture end is dropped; tie it to the slider if it feels off.
+const STEP = 40;
 const MSG = 'touchpad-scroll-fix';
 const inFrame = window !== top;
 let lastT = -Infinity, touchpad = false, target = null, restX = 0, restY = 0;
-let handoffId = null, childGestureId = null;
+let handoffId = null, childGestureId = null, siteHandled = false, accX = 0, accY = 0;
 const childFrames = new Map();
 
 // Mouse wheels send whole notches (wheelDelta multiple of 120), touchpads arbitrary values.
@@ -46,7 +50,8 @@ const start = (isTouchpad, path, dx, dy) => {
     handoffId = crypto.getRandomValues(new Uint32Array(2)).join('-');
     parent.postMessage({ [MSG]: handoffId }, '*');
   }
-  restX = restY = 0;
+  restX = restY = accX = accY = 0;
+  siteHandled = false;
 };
 
 const scroll = (dx, dy) => {
@@ -60,6 +65,18 @@ const scroll = (dx, dy) => {
 };
 
 let replaying = false;
+// Dispatches a copy of e with the given deltas; returns false if the page cancelled it.
+const replay = (e, dx, dy) => {
+  const k = dx / (e.deltaX || 1), l = dy / (e.deltaY || 1);
+  const copy = new WheelEvent('wheel', {
+    bubbles: true, cancelable: true, composed: true, view: e.view, detail: e.detail,
+    screenX: e.screenX, screenY: e.screenY, clientX: e.clientX, clientY: e.clientY, buttons: e.buttons,
+    shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey, deltaMode: e.deltaMode,
+    deltaX: dx, deltaY: dy, deltaZ: e.deltaZ, wheelDeltaX: e.wheelDeltaX * k, wheelDeltaY: e.wheelDeltaY * l,
+  });
+  replaying = true;
+  try { return e.composedPath()[0].dispatchEvent(copy); } finally { replaying = false; }
+};
 addEventListener('wheel', e => {
   if (replaying || !S.enabled || e.ctrlKey || (!e.deltaX && !e.deltaY)) return;
   if (e.timeStamp - lastT > GAP_MS) start(looksTouchpad(e), e.composedPath(), e.deltaX, e.deltaY);
@@ -70,17 +87,20 @@ addEventListener('wheel', e => {
   // Sites that scroll on wheel themselves (Notion Calendar, maps, carousels) get a scaled copy instead of the real event.
   // ponytail: the copy has isTrusted false; a site that checks it ignores the gesture, whitelist sites if that shows up.
   const dx = e.deltaX * S.factor, dy = e.deltaY * S.factor;
-  const copy = new WheelEvent('wheel', {
-    bubbles: true, cancelable: true, composed: true, view: e.view, detail: e.detail,
-    screenX: e.screenX, screenY: e.screenY, clientX: e.clientX, clientY: e.clientY, buttons: e.buttons,
-    shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey, deltaMode: e.deltaMode,
-    deltaX: dx, deltaY: dy, deltaZ: e.deltaZ, wheelDeltaX: e.wheelDeltaX * S.factor, wheelDeltaY: e.wheelDeltaY * S.factor,
-  });
   e.stopImmediatePropagation();
-  replaying = true;
-  const handled = !e.composedPath()[0].dispatchEvent(copy);
-  replaying = false;
-  if (handled) return e.preventDefault();
+  if (siteHandled) {
+    e.preventDefault();
+    accX += dx;
+    accY += dy;
+    if (Math.hypot(accX, accY) < STEP) return;
+    replay(e, accX, accY);
+    accX = accY = 0;
+    return;
+  }
+  if (!replay(e, dx, dy)) {
+    siteHandled = true;
+    return e.preventDefault();
+  }
   if (!target) return;
   e.preventDefault();
   scroll(dx, dy);

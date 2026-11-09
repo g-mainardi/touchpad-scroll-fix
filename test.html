@@ -2,6 +2,8 @@
 <meta charset="utf-8">
 <title>Touchpad Scroll Fix - test</title>
 <div id="box" style="height:100px;overflow:auto"><div style="height:2000px"></div></div>
+<div id="wide" style="width:100px;overflow-x:auto"><div style="width:2000px;height:10px"></div></div>
+<div id="steps" style="height:50px"></div>
 <pre id="out">running…</pre>
 <script>
   globalThis.chrome = {
@@ -12,9 +14,13 @@
 <script src="content.js"></script>
 <script>
   const box = document.getElementById('box'), log = [];
-  const fire = init => {
+  const wide = document.getElementById('wide'), steps = document.getElementById('steps');
+  let stepCount = 0;
+  // Like Notion Calendar: one step per wheel event, whatever the delta.
+  steps.addEventListener('wheel', e => { e.preventDefault(); stepCount++; });
+  const fire = (init, el = box.firstElementChild) => {
     const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, composed: true, ...init });
-    box.firstElementChild.dispatchEvent(e);
+    el.dispatchEvent(e);
     return e;
   };
   const check = (name, ok, extra = '') => log.push(`${ok ? 'PASS' : 'FAIL'} ${name} ${extra}`);
@@ -38,6 +44,25 @@
     box.scrollTop = 0;
     const up = fire({ deltaY: -37, wheelDeltaY: 84 });
     check('nothing to scroll -> native passthrough', !up.defaultPrevented);
+
+    await wait(300);
+    fire({ deltaX: 37, wheelDeltaX: -84 }, wide.firstElementChild);
+    fire({ deltaX: 37, wheelDeltaX: -84 }, wide.firstElementChild);
+    check('horizontal touchpad scaled x0.5', wide.scrollLeft === 37, `scrollLeft=${wide.scrollLeft}`);
+
+    await wait(300);
+    const hm = fire({ deltaX: 120, wheelDeltaX: -120 }, wide.firstElementChild);
+    check('horizontal mouse notch untouched', wide.scrollLeft === 37 && !hm.defaultPrevented, `scrollLeft=${wide.scrollLeft}`);
+
+    await wait(300);
+    wide.scrollLeft = 0;
+    const hl = fire({ deltaX: -37, wheelDeltaX: 84 }, wide.firstElementChild);
+    check('horizontal nothing to scroll -> native passthrough', !hl.defaultPrevented);
+
+    await wait(300);
+    // 20 events x 10px x 0.5 = 100 scaled px: first copy goes through, then one per 40px.
+    for (let i = 0; i < 20; i++) fire({ deltaX: 10, wheelDeltaX: -12 }, steps);
+    check('site stepping per event gets batched copies', stepCount === 3, `steps=${stepCount}`);
 
     document.getElementById('out').textContent = log.join('\n');
   })();

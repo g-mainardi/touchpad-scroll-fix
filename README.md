@@ -15,10 +15,10 @@ With Flatpak Chrome the folder must live somewhere the sandbox can read, such as
 
 - The device is decided on the first event of each gesture: mouse wheels send whole notches (`wheelDelta` multiple of 120), touchpads arbitrary values.
 - For touchpad gestures, vertical and horizontal, it cancels native scrolling and scrolls the same element by `delta × sensitivity`, carrying fractional pixels over.
-- Sites that scroll on wheel themselves (Notion Calendar, maps, carousels) receive a copy of the event with scaled deltas instead of the real one.
+- Sites that scroll on wheel themselves (Notion Calendar, maps, carousels) receive a copy of the event with scaled deltas instead of the real one. Since some of them move a fixed step per event (Notion Calendar: one day), after the first event of a gesture the copies are batched, one every 40 scaled pixels.
 - When a gesture starts in an iframe with nothing left to scroll, the scaled scroll is handed to the parent page, like native scroll chaining. The frame is identified via `postMessage`, while the amounts travel through extension messaging, so page scripts can't forge scrolling.
 - Mouse wheel, pinch zoom (Ctrl) and scroll-locked pages are left alone.
-- The popup sets the sensitivity, has a test area, can open in its own window and switches the UI between English and Italian.
+- The popup sets the sensitivity, has a test area that scrolls both ways, can open in its own window and switches the UI between English and Italian.
 
 Settings live in `chrome.storage.local`: every tab, window and frame picks up changes immediately, and they survive restarts. Moving the folder gives the unpacked extension a new ID, which resets them.
 

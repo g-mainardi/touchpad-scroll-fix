@@ -29,16 +29,20 @@ const pages = {
       <iframe src="http://127.0.0.1:${PORT}/child.html?tall" style="display:block;width:300px;height:150px;border:0"></iframe>
       <div style="height:3000px"></div>
     </div>
+    <div id="wide" style="position:fixed;top:0;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:3000px;height:1px"></div></div>
+    <div id="custom" style="position:fixed;top:100px;right:0;width:100px;height:80px;overflow:hidden"></div>
     <script>
+      // Like Notion Calendar: the page moves its own content by the wheel deltas and cancels native scrolling.
+      custom.addEventListener('wheel', e => { e.preventDefault(); window.customX += e.deltaX; }, { passive: false });
       addEventListener('message', e => {
         if (e.data?.childY !== undefined) window.childY = e.data.childY;
         if (e.data?.childWheel) window.childWheel = e.data.childWheel;
       });
-      addEventListener('wheel', e => { window.lastWheel = { deltaY: e.deltaY, wheelDeltaY: e.wheelDeltaY, cancelable: e.cancelable }; }, true);
+      addEventListener('wheel', e => { window.lastWheel = { deltaX: e.deltaX, wheelDeltaX: e.wheelDeltaX, deltaY: e.deltaY, wheelDeltaY: e.wheelDeltaY, cancelable: e.cancelable }; }, true);
       addEventListener('wheel', e => { window.lastWheel.prevented = e.defaultPrevented; });
       const reset = () => {
-        outer.scrollTop = 0;
-        window.childY = 0;
+        outer.scrollTop = wide.scrollLeft = 0;
+        window.childY = window.customX = 0;
         window.lastWheel = window.childWheel = null;
         for (let i = 0; i < frames.length; i++) frames[i].postMessage({ reset: 1 }, '*');
       };
@@ -84,16 +88,17 @@ const NATIVE = 185, expected = Math.trunc(NATIVE * FACTOR);
 
 // synthesizeScrollGesture emits precise, phased wheel events like a touchpad;
 // dispatchMouseEvent mouseWheel always reports whole notches (wheelDeltaY ±120) like a mouse.
-const gesture = async (x, y, mouse = false) => {
+const gesture = async (x, y, mouse = false, horizontal = false) => {
   await evaluate('reset()');
   await sleep(300);
   await evaluate('window.childY = 0');
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-  if (mouse) for (let i = 0; i < 5; i++) await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: NATIVE / 5 });
-  else await send('Input.synthesizeScrollGesture', { x, y, yDistance: -NATIVE, gestureSourceType: 'mouse', speed: 1200 });
+  const [dx, dy] = horizontal ? [NATIVE, 0] : [0, NATIVE];
+  if (mouse) for (let i = 0; i < 5; i++) await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: dx / 5, deltaY: dy / 5 });
+  else await send('Input.synthesizeScrollGesture', { x, y, xDistance: -dx, yDistance: -dy, gestureSourceType: 'mouse', speed: 1200 });
   await sleep(700);
-  const [outer, child, wheel, childWheel] = await evaluate('[outer.scrollTop, window.childY, window.lastWheel, window.childWheel]');
-  return { outer, child, wheel, childWheel };
+  const [outer, child, wide, custom, wheel, childWheel] = await evaluate('[outer.scrollTop, window.childY, wide.scrollLeft, Math.round(window.customX), window.lastWheel, window.childWheel]');
+  return { outer, child, wide, custom, wheel, childWheel };
 };
 
 const near = (v, want = expected) => Math.abs(v - want) <= 2;
@@ -108,6 +113,14 @@ r = await gesture(100, 75);
 check('non-scrollable iframe hands scaled scroll to parent', near(r.outer) && r.child === 0, r);
 r = await gesture(100, 225);
 check('scrollable iframe scrolls itself scaled, parent untouched', near(r.child) && r.outer === 0, r);
+r = await gesture(450, 40, false, true);
+check('horizontal touchpad scaled', near(r.wide) && r.outer === 0, r);
+r = await gesture(450, 40, true, true);
+check('horizontal mouse wheel untouched', near(r.wide, NATIVE), r);
+r = await gesture(450, 140, false, true);
+check('site handling wheel itself gets scaled deltas', near(r.custom) && r.outer === 0, r);
+r = await gesture(450, 140, true, true);
+check('site handling wheel itself: mouse untouched', near(r.custom, NATIVE), r);
 
 console.log(log.join('\n'));
 const version = await fetch(`http://127.0.0.1:${CDP}/json/version`).then(r => r.json());

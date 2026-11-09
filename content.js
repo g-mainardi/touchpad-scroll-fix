@@ -59,16 +59,32 @@ const scroll = (dx, dy) => {
   if (x || y) target.scrollBy(x, y);
 };
 
+let replaying = false;
 addEventListener('wheel', e => {
-  if (!S.enabled || e.ctrlKey || e.defaultPrevented || (!e.deltaX && !e.deltaY)) return;
+  if (replaying || !S.enabled || e.ctrlKey || (!e.deltaX && !e.deltaY)) return;
   if (e.timeStamp - lastT > GAP_MS) start(looksTouchpad(e), e.composedPath(), e.deltaX, e.deltaY);
   lastT = e.timeStamp;
   globalThis.onTsfWheel?.(e, touchpad);
   // Chrome only lets a gesture be cancelled if its first event was; the latched target mirrors native latching.
-  if (!target || !e.cancelable) return;
+  if (!touchpad || !e.cancelable) return;
+  // Sites that scroll on wheel themselves (Notion Calendar, maps, carousels) get a scaled copy instead of the real event.
+  // ponytail: the copy has isTrusted false; a site that checks it ignores the gesture, whitelist sites if that shows up.
+  const dx = e.deltaX * S.factor, dy = e.deltaY * S.factor;
+  const copy = new WheelEvent('wheel', {
+    bubbles: true, cancelable: true, composed: true, view: e.view, detail: e.detail,
+    screenX: e.screenX, screenY: e.screenY, clientX: e.clientX, clientY: e.clientY, buttons: e.buttons,
+    shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey, deltaMode: e.deltaMode,
+    deltaX: dx, deltaY: dy, deltaZ: e.deltaZ, wheelDeltaX: e.wheelDeltaX * S.factor, wheelDeltaY: e.wheelDeltaY * S.factor,
+  });
+  e.stopImmediatePropagation();
+  replaying = true;
+  const handled = !e.composedPath()[0].dispatchEvent(copy);
+  replaying = false;
+  if (handled) return e.preventDefault();
+  if (!target) return;
   e.preventDefault();
-  scroll(e.deltaX * S.factor, e.deltaY * S.factor);
-}, { passive: false });
+  scroll(dx, dy);
+}, { capture: true, passive: false });
 
 // Parent side of the hand-off. postMessage only tells which child frame a gesture id belongs to, and pages can forge it;
 // the scroll amounts arrive through extension messaging, which page scripts can't send.

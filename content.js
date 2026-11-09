@@ -3,8 +3,7 @@ chrome.storage.local.get(S, v => Object.assign(S, v));
 chrome.storage.onChanged.addListener(c => { for (const k in c) S[k] = c[k].newValue; });
 
 const GAP_MS = 150;
-// Some sites move a fixed step per wheel event whatever its delta (Notion Calendar: one day), so on those
-// the copies are batched: one per STEP scaled px.
+// Copies for sites that scroll on wheel themselves are batched, one per STEP scaled px.
 // ponytail: fixed step, the leftover under STEP at gesture end is dropped; tie it to the slider if it feels off.
 const STEP = 40;
 const MSG = 'touchpad-scroll-fix';
@@ -79,15 +78,24 @@ const replay = (e, dx, dy) => {
 };
 addEventListener('wheel', e => {
   if (replaying || !S.enabled || e.ctrlKey || (!e.deltaX && !e.deltaY)) return;
-  if (e.timeStamp - lastT > GAP_MS) start(looksTouchpad(e), e.composedPath(), e.deltaX, e.deltaY);
+  const fresh = e.timeStamp - lastT > GAP_MS;
+  if (fresh) start(looksTouchpad(e), e.composedPath(), e.deltaX, e.deltaY);
   lastT = e.timeStamp;
   globalThis.onTsfWheel?.(e, touchpad);
   // Chrome only lets a gesture be cancelled if its first event was; the latched target mirrors native latching.
   if (!touchpad || !e.cancelable) return;
-  // Sites that scroll on wheel themselves (Notion Calendar, maps, carousels) get a scaled copy instead of the real event.
-  // ponytail: the copy has isTrusted false; a site that checks it ignores the gesture, whitelist sites if that shows up.
   const dx = e.deltaX * S.factor, dy = e.deltaY * S.factor;
+  // Page wheel listeners never see the real events. The first one of a gesture becomes a near-zero probe copy:
+  // - cancelled: the site scrolls itself (maps, carousels); it gets copies, batched one per STEP scaled px,
+  //   since some move a fixed step per event whatever the delta.
+  // - not cancelled: the extension scrolls and the page sees no more wheel events for the gesture. Notion Calendar
+  //   jumps a whole day per wheel event without cancelling it, so letting events through makes it race.
+  // ponytail: copies have isTrusted false and passive wheel listeners only get the probe; whitelist sites if either bites.
   e.stopImmediatePropagation();
+  if (fresh) {
+    accX = accY = 0;
+    siteHandled = !replay(e, dx * 1e-3, dy * 1e-3);
+  }
   if (siteHandled) {
     e.preventDefault();
     accX += dx;
@@ -96,10 +104,6 @@ addEventListener('wheel', e => {
     replay(e, accX, accY);
     accX = accY = 0;
     return;
-  }
-  if (!replay(e, dx, dy)) {
-    siteHandled = true;
-    return e.preventDefault();
   }
   if (!target) return;
   e.preventDefault();

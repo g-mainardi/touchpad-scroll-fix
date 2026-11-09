@@ -30,9 +30,15 @@ const pages = {
       <div style="height:3000px"></div>
     </div>
     <div id="wide" style="position:fixed;top:0;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:3000px;height:1px"></div></div>
+    <div id="cal" style="position:fixed;top:200px;right:0;width:100px;height:80px;overflow-x:auto"><div style="width:30000px;height:1px"></div></div>
     <div id="custom" style="position:fixed;top:100px;right:0;width:100px;height:80px;overflow:hidden"></div>
     <script>
-      // Like Notion Calendar: the page cancels native scrolling and moves one day per wheel event, whatever the delta.
+      // Like Notion Calendar: a native scroller whose page also jumps a whole column per wheel event, without cancelling it.
+      cal.addEventListener('wheel', e => {
+        window.calAcc += e.deltaX;
+        if (Math.abs(window.calAcc) >= 1) { cal.scrollLeft += 1000 * Math.sign(window.calAcc); window.calAcc = 0; window.calJumps++; }
+      }, { passive: true });
+      // A carousel-like page that cancels native scrolling and moves one step per wheel event, whatever the delta.
       custom.addEventListener('wheel', e => { e.preventDefault(); if (Math.abs(e.deltaX) >= 1) window.customX++; }, { passive: false });
       addEventListener('message', e => {
         if (e.data?.childY !== undefined) window.childY = e.data.childY;
@@ -41,7 +47,8 @@ const pages = {
       addEventListener('wheel', e => { window.lastWheel = { deltaX: e.deltaX, wheelDeltaX: e.wheelDeltaX, deltaY: e.deltaY, wheelDeltaY: e.wheelDeltaY, cancelable: e.cancelable }; }, true);
       addEventListener('wheel', e => { window.lastWheel.prevented = e.defaultPrevented; });
       const reset = () => {
-        outer.scrollTop = wide.scrollLeft = 0;
+        outer.scrollTop = wide.scrollLeft = cal.scrollLeft = 0;
+        window.calAcc = window.calJumps = 0;
         window.childY = window.customX = 0;
         window.lastWheel = window.childWheel = null;
         for (let i = 0; i < frames.length; i++) frames[i].postMessage({ reset: 1 }, '*');
@@ -97,8 +104,8 @@ const gesture = async (x, y, mouse = false, horizontal = false) => {
   if (mouse) for (let i = 0; i < 5; i++) await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: dx / 5, deltaY: dy / 5 });
   else await send('Input.synthesizeScrollGesture', { x, y, xDistance: -dx, yDistance: -dy, gestureSourceType: 'mouse', speed: 1200 });
   await sleep(700);
-  const [outer, child, wide, custom, wheel, childWheel] = await evaluate('[outer.scrollTop, window.childY, wide.scrollLeft, Math.round(window.customX), window.lastWheel, window.childWheel]');
-  return { outer, child, wide, custom, wheel, childWheel };
+  const [outer, child, wide, custom, cal, wheel, childWheel] = await evaluate('[outer.scrollTop, window.childY, wide.scrollLeft, Math.round(window.customX), [cal.scrollLeft, window.calJumps], window.lastWheel, window.childWheel]');
+  return { outer, child, wide, custom, cal, wheel, childWheel };
 };
 
 const near = (v, want = expected) => Math.abs(v - want) <= 2;
@@ -121,6 +128,9 @@ r = await gesture(450, 140, false, true);
 check('site stepping per wheel event: events batched', r.custom >= 1 && r.custom <= 3 && r.outer === 0, r);
 r = await gesture(450, 140, true, true);
 check('site stepping per wheel event: mouse untouched (5 notches)', r.custom === 5, r);
+
+r = await gesture(450, 240, false, true);
+check('Notion-like page jumping per event without cancelling: scaled native scroll, no jumps', near(r.cal[0]) && r.cal[1] === 0, r);
 
 console.log(log.join('\n'));
 const version = await fetch(`http://127.0.0.1:${CDP}/json/version`).then(r => r.json());
